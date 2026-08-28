@@ -35,3 +35,46 @@ jobs:
       - name: Validate scripts, workflows, and device list
         shell: bash
         run: bash scripts/validate-repository.sh
+
+  upstream-config:
+    name: Resolve ImmortalWrt 25.12 config (no compile)
+    needs: validate
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Install configuration dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get -qq update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential clang flex bison g++ gawk gcc-multilib gettext git \
+            libelf-dev libncurses-dev libssl-dev python3-setuptools rsync swig \
+            unzip zlib1g-dev zstd
+
+      - name: Fetch ImmortalWrt and feeds
+        shell: bash
+        run: |
+          set -euo pipefail
+          git init -q openwrt
+          git -C openwrt remote add origin https://github.com/immortalwrt/immortalwrt
+          git -C openwrt fetch -q --depth=1 --no-tags origin openwrt-25.12
+          git -C openwrt -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Resolve requested configuration
+        working-directory: openwrt
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$GITHUB_WORKSPACE/immortalwrt/diy-part1.sh"
+          install -m 0644 "$GITHUB_WORKSPACE/immortalwrt/rockchip/defconfig" .config
+          "$GITHUB_WORKSPACE/immortalwrt/diy-part2.sh"
+          make defconfig
+          "$GITHUB_WORKSPACE/scripts/check-resolved-config.sh" .config
+          "$GITHUB_WORKSPACE/scripts/write-source-manifest.sh" "$GITHUB_WORKSPACE/COMMUNITY_SOURCES.txt"
