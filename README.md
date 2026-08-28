@@ -1,81 +1,84 @@
-### 机场推荐 [ENET--IEPL内网专线接入](https://www.easyenable.com/#/register?code=CNC7La7m)
-# OpenWrt — RockChip多设备固件云编译
-- 支持rk3588，rk356x，rk3399，rk3328
-### 源代码地址
-https://github.com/DHDAXCW/lede-rockchip
+# EchoWrt-Rockchip
 
-### 支持设备
-```
-embedfire_doornet1
-embedfire_doornet2
-embedfire_lubancat-1n
-embedfire_lubancat-1
-embedfire_lubancat-2n
-embedfire_lubancat-2
-embedfire_lubancat-4
-embedfire_lubancat-5
+EchoWrt-Rockchip 是面向 Rockchip 设备的 ImmortalWrt 固件构建与独立维护项目。本仓库保存构建配置、定制脚本和 GitHub Actions 工作流，不再维护一份完整且长期分叉的 OpenWrt 源码树。
+
+## 源码策略
+
+- 主线源码：[ImmortalWrt openwrt-25.12](https://github.com/immortalwrt/immortalwrt/tree/openwrt-25.12)
+- 构建配置：本仓库的 immortalwrt/rockchip/defconfig
+- 老设备移植参考：[DHDAXCW/lede-rockchip](https://github.com/DHDAXCW/lede-rockchip)
+
+旧 lede-rockchip 不再作为日常构建源。每次构建产物都会附带 BUILD_INFO.txt 和 COMMUNITY_SOURCES.txt，记录实际使用的源码提交与第三方软件包提交，便于复现和排查。
+
+## 当前默认构建设备
+
+以下列表与 immortalwrt/rockchip/defconfig 保持一致：
+
+~~~
+armsom_sige3
+armsom_sige7
+friendlyarm_nanopc-t4
 friendlyarm_nanopc-t6
-friendlyarm_nanopi-r2c
-friendlyarm_nanopi-r2s
+friendlyarm_nanopi-r3s
 friendlyarm_nanopi-r4se
-friendlyarm_nanopi-r4s
 friendlyarm_nanopi-r5c
 friendlyarm_nanopi-r5s
 friendlyarm_nanopi-r6c
 friendlyarm_nanopi-r6s
-hinlink_h88k
-hinlink_opc-h66k
-hinlink_opc-h68k
-hinlink_opc-h69k
-```
+radxa_rock-5a
+radxa_rock-5b
+xunlong_orangepi-5
+xunlong_orangepi-5-plus
+~~~
 
-### 固件默认配置
-- 用户名：`root` 密码：`password` 管理IP：`192.168.11.1`
-- 下载地址：https://github.com/DHDAXCW/OpenWrt_RockChip/releases 对应 Tag 标签内下载固件
-- 刷机方法请参考dn2刷机 https://github.com/DHDAXCW/OpenWrt_RockChip/blob/master/data/emmc.md
-- 电报交流群：https://t.me/armopenwrt
+ImmortalWrt 25.12 已有定义、但默认配置暂未启用的设备包括 NanoPi R2C、R2S 和 R4S。它们只需加入构建矩阵并完成实机验证。
 
-### 固件特色
-1. 集成 iStore 应用商店，可根据自己需求自由安装所需插件
-2. 集成应用过滤插件，支持游戏、视频、聊天、下载等 APP 过滤
-3. 集成在线用户插件，可查看所有在线用户 IP 地址与实时速率等
-4. 集成部分常用有线、无线、3G / 4G /5G 网卡驱动 可在issues提支持网卡，看本人能力了。。。
-5. 支持在线更新，从2024.03.27之后就能通过后台升级
-6. 特调优化irq中断分配网卡绑定cpu
+DoorNet、LubanCat 和部分 Hinlink 设备不在当前官方 25.12 Rockchip 设备定义中，不能只复制旧配置直接发布；这些设备需要单独移植 DTS、镜像布局、网络接口和升级脚本，并保留串口救砖方案。
 
-### 固件展示
-<img width="1304" alt="image" src="https://github.com/DHDAXCW/OpenWrt_RockChip/assets/74764072/acc32c0b-a8aa-4250-88c1-a1d4d3f24ec2">
+## 云编译
 
-### 特别提示 [![](https://img.shields.io/badge/-个人免责声明-FFFFFF.svg)](#特别提示-)
+1. Fork 本仓库。
+2. 打开 GitHub 的 Actions 页面。
+3. 选择 **Build EchoWrt Rockchip firmware**。
+4. 点击 **Run workflow**，选择：
+   - **profile**：standard 或 docker
+   - **source_ref**：默认 openwrt-25.12，也可指定经过验证的 tag 或 commit
+   - **publish_release**：实机验证前建议保持关闭
+5. 构建完成后先下载 Artifact 验证；确认无误后再发布 Release。
 
-- **因精力有限不提供任何技术支持和教程等相关问题解答，不保证完全无 BUG！**
+工作流使用 GitHub 托管的 Ubuntu 22.04 runner，不依赖原作者的 self-hosted runner。
 
-- **本人不对任何人因使用本固件所遭受的任何理论或实际的损失承担责任！**
+## 默认访问
 
-- **本固件禁止用于任何商业用途，请务必严格遵守国家互联网使用相关法律规定！**
+- 用户名：root
+- 初始密码：不预置，首次登录时设置
+- 管理地址：192.168.8.1
+- 默认主机名：EchoWrt
 
-### 有bug请在 https://github.com/DHDAXCW/OpenWrt_RockChip/issues 提问题
+首次从可信 LAN 打开 LuCI 后，请立即进入密码设置页面设置强密码；也可以通过 SSH 执行 passwd。完成密码设置前不要把设备暴露到公网。
 
-### 鸣谢
+## 产物校验
 
-特别感谢以下项目：
+每个 Artifact 或 Release 应至少包含：
 
-Openwrt 官方项目：
+- BUILD_INFO.txt：主源码、分支、提交和工作流提交
+- COMMUNITY_SOURCES.txt：第三方软件包仓库与提交
+- SHA256SUMS：所有 img.gz 镜像的校验值
+- 对应设备的固件镜像与构建元数据
 
-<https://github.com/openwrt/openwrt>
+刷机前请核对设备型号和镜像文件名。EMMC/SD 刷写参考见 [data/emmc.md](data/emmc.md)，其中包含高风险磁盘写入命令，执行前必须再次确认目标块设备。
 
-Lean 大的 Openwrt 项目：
+## 维护路线
 
-<https://github.com/coolsnowwolf/lede>
+维护和发布门槛见 [docs/MAINTENANCE.md](docs/MAINTENANCE.md)。近期顺序是：
 
-immortalwrt 的 OpenWrt 项目：
+1. 稳定官方 ImmortalWrt 25.12 云编译。
+2. 固定并周期性更新第三方软件包版本。
+3. 用实机建立设备验收矩阵。
+4. 按优先级移植旧源码树中的遗留设备。
 
-<https://github.com/immortalwrt/immortalwrt>
+## 致谢与许可
 
-P3TERX 大佬的 Actions-OpenWrt 项目：
+感谢 [OpenWrt](https://github.com/openwrt/openwrt)、[ImmortalWrt](https://github.com/immortalwrt/immortalwrt)、[P3TERX/Actions-OpenWrt](https://github.com/P3TERX/Actions-OpenWrt) 以及相关设备和软件包维护者。
 
-<https://github.com/P3TERX/Actions-OpenWrt>
-
-SuLingGG 大佬的 Actions 编译框架 项目：
-
-https://github.com/SuLingGG/OpenWrt-Rpi
+本仓库按 [GPL-3.0](LICENSE) 发布。第三方源码和二进制仍分别受其自身许可证约束。

@@ -1,0 +1,64 @@
+name: 固件故障
+description: 报告已支持设备上的构建、启动或运行问题
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: dropdown
+    id: device
+    attributes:
+      label: 设备
+      options:
+        - ArmSoM Sige3
+        - ArmSoM Sige7
+        - NanoPC T4
+        - NanoPC T6
+        - NanoPi R3S
+        - NanoPi R4SE
+        - NanoPi R5C
+        - NanoPi R5S
+        - NanoPi R6C
+        - NanoPi R6S
+        - Radxa ROCK 5A
+        - Radxa ROCK 5B
+        - Orange Pi 5
+        - Orange Pi 5 Plus
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: 硬件版本与启动介质
+      placeholder: 例如 NanoPi R5S 4GB / eMMC
+    validations:
+      required: true
+  - type: input
+    id: source_commit
+    attributes:
+      label: BUILD_INFO.txt 中的 source_commit
+      placeholder: 40 位 commit
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: 问题与复现步骤
+      placeholder: 从刷写开始，逐步说明操作、预期和实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: 请粘贴串口、dmesg、logread 或 Actions 失败片段，并移除密码、密钥和公网地址。
+      render: shell
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: 确认
+      options:
+        - label: 我已核对镜像文件名与设备型号一致，并准备了可用的救砖方案。
+          required: true

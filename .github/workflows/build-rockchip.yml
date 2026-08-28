@@ -1,0 +1,234 @@
+name: Build EchoWrt Rockchip firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Firmware profile
+        required: true
+        default: standard
+        type: choice
+        options:
+          - standard
+          - docker
+      source_ref:
+        description: ImmortalWrt branch, tag, or commit
+        required: true
+        default: openwrt-25.12
+        type: string
+      publish_release:
+        description: Publish the result as a GitHub Release
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rockchip-${{ github.ref }}-${{ inputs.profile }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_NAME: EchoWrt-Rockchip
+  SOURCE_URL: https://github.com/immortalwrt/immortalwrt
+  SOURCE_REF: ${{ inputs.source_ref }}
+  CONFIG_FILE: immortalwrt/rockchip/defconfig
+  DIY_P1_SH: immortalwrt/diy-part1.sh
+  DIY_P2_SH: immortalwrt/diy-part2.sh
+  BUILD_PROFILE: ${{ inputs.profile }}
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    name: ${{ inputs.profile }} / ${{ inputs.source_ref }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 330
+
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@bb67daa4a202a2ea017b6410ea1f07da0c9a0251 # v9
+        with:
+          root-reserve-mb: 1024
+          swap-size-mb: 2048
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+
+      - name: Check out build configuration
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Install build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        shell: bash
+        run: |
+          set -euo pipefail
+          packages=(
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison
+            build-essential bzip2 ccache clang cmake cpio curl
+            device-tree-compiler ecj fastjar flex gawk gettext gcc-multilib
+            g++-multilib git gnutls-dev gperf haveged help2man intltool
+            lib32gcc-s1 libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev
+            libltdl-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev
+            libreadline-dev libssl-dev libtool libyaml-dev libz-dev lld llvm
+            lrzsz mkisofs msmtp nano ninja-build p7zip p7zip-full patch
+            pkgconf python3 python3-docutils python3-pip python3-ply
+            python3-pyelftools qemu-utils re2c rsync scons squashfs-tools
+            subversion swig texinfo uglifyjs unzip upx-ucl vim wget xmlto xxd
+            zlib1g-dev zstd
+          )
+          sudo apt-get -qq update
+          sudo apt-get install -y --no-install-recommends "${packages[@]}"
+          sudo apt-get -qq clean
+
+      - name: Download ImmortalWrt source
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$ ]]
+          git init -q openwrt
+          git -C openwrt remote add origin "$SOURCE_URL"
+          git -C openwrt fetch -q --depth=1 --no-tags origin "$SOURCE_REF"
+          git -C openwrt -c advice.detachedHead=false checkout -q --detach FETCH_HEAD
+          source_commit="$(git -C openwrt rev-parse HEAD)"
+          source_date="$(git -C openwrt show -s --format=%cI HEAD)"
+          echo "SOURCE_COMMIT=$source_commit" >> "$GITHUB_ENV"
+          echo "SOURCE_DATE=$source_date" >> "$GITHUB_ENV"
+
+      - name: Update and install feeds
+        working-directory: openwrt
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Add community packages
+        working-directory: openwrt
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x "$GITHUB_WORKSPACE/$DIY_P1_SH"
+          "$GITHUB_WORKSPACE/$DIY_P1_SH"
+          chmod +x "$GITHUB_WORKSPACE/scripts/write-source-manifest.sh"
+          "$GITHUB_WORKSPACE/scripts/write-source-manifest.sh" "$GITHUB_WORKSPACE/COMMUNITY_SOURCES.txt"
+
+      - name: Load firmware configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -m 0644 "$CONFIG_FILE" openwrt/.config
+          cd openwrt
+          chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
+          "$GITHUB_WORKSPACE/$DIY_P2_SH"
+          if [[ "$BUILD_PROFILE" == "docker" ]]; then
+            {
+              echo "CONFIG_DOCKER_CGROUP_OPTIONS=y"
+              echo "CONFIG_DOCKER_NET_MACVLAN=y"
+              echo "CONFIG_DOCKER_STO_EXT4=y"
+              echo "CONFIG_PACKAGE_docker=y"
+              echo "CONFIG_PACKAGE_docker-compose=y"
+              echo "CONFIG_PACKAGE_dockerd=y"
+              echo "CONFIG_PACKAGE_luci-app-dockerman=y"
+              echo "CONFIG_PACKAGE_luci-i18n-dockerman-zh-cn=y"
+              echo "CONFIG_PACKAGE_luci-lib-docker=y"
+            } >> .config
+          fi
+          make defconfig
+
+      - name: Download package sources
+        working-directory: openwrt
+        shell: bash
+        run: |
+          set -euo pipefail
+          make download -j"$(nproc)"
+          find dl -type f -size -1024c -print -delete
+
+      - name: Compile firmware
+        working-directory: openwrt
+        shell: bash
+        run: |
+          set -euo pipefail
+          make -j"$(nproc)" || make -j1 V=s
+          echo "BUILD_DATE=$(date +'%Y.%m.%d')" >> "$GITHUB_ENV"
+
+      - name: Prepare firmware files
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_dir="$GITHUB_WORKSPACE/openwrt/bin/targets/rockchip/armv8"
+          [[ -d "$target_dir" ]]
+          rm -rf "$target_dir/packages"
+
+          shopt -s nullglob
+          images=("$target_dir"/*.img.gz)
+          (("${#images[@]}" > 0))
+
+          if [[ "$BUILD_PROFILE" == "docker" ]]; then
+            for file in "${images[@]}"; do
+              base="${file##*/}"
+              mv -- "$file" "$target_dir/docker-$base"
+            done
+          fi
+
+          (
+            cd "$target_dir"
+            sha256sum -- *.img.gz > SHA256SUMS
+          )
+
+          {
+            echo "project=$PROJECT_NAME"
+            echo "source_url=$SOURCE_URL"
+            echo "source_ref=$SOURCE_REF"
+            echo "source_commit=$SOURCE_COMMIT"
+            echo "source_commit_date=$SOURCE_DATE"
+            echo "build_profile=$BUILD_PROFILE"
+            echo "workflow_commit=$GITHUB_SHA"
+          } > "$target_dir/BUILD_INFO.txt"
+          install -m 0644 COMMUNITY_SOURCES.txt "$target_dir/COMMUNITY_SOURCES.txt"
+
+          echo "FIRMWARE=$target_dir" >> "$GITHUB_ENV"
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: ${{ env.BUILD_DATE }}_${{ env.BUILD_PROFILE }}_rockchip_${{ github.run_number }}
+          path: ${{ env.FIRMWARE }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Generate release metadata
+        id: release
+        if: ${{ inputs.publish_release }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_tag="$BUILD_DATE-$BUILD_PROFILE-r$GITHUB_RUN_NUMBER"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          {
+            echo "## EchoWrt Rockchip firmware"
+            echo
+            echo "- Profile: $BUILD_PROFILE"
+            echo "- Source: $SOURCE_URL"
+            echo "- Ref: $SOURCE_REF"
+            echo "- Commit: $SOURCE_COMMIT"
+            echo
+            echo "默认管理地址为 192.168.8.1；首次登录时请设置 root 密码。刷写前请核对设备型号与镜像文件名。"
+          } > release.txt
+
+      - name: Publish GitHub Release
+        if: ${{ inputs.publish_release }}
+        uses: softprops/action-gh-release@fe965f7af51af5f2602596916f38a38df2e33de0 # v3.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.release.outputs.release_tag }}
+          name: EchoWrt Rockchip ${{ steps.release.outputs.release_tag }}
+          body_path: release.txt
+          files: ${{ env.FIRMWARE }}/*

@@ -21,8 +21,8 @@ rm -f S99nft-qos || true
 
 # Try to execute init.sh (if exists)
 
-if [ ! -f "/boot/init.sh" ]; then
-bash /boot/init.sh
+if [ -f "/boot/init.sh" ]; then
+    bash /boot/init.sh
 fi
 
 exit 0

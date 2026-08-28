@@ -1,0 +1,53 @@
+name: 新设备支持
+description: 申请新增或恢复 Rockchip 设备
+title: "[Device] "
+labels:
+  - enhancement
+body:
+  - type: input
+    id: model
+    attributes:
+      label: 完整设备型号
+      placeholder: 厂商、型号、硬件版本
+    validations:
+      required: true
+  - type: input
+    id: soc
+    attributes:
+      label: SoC、内存与存储
+      placeholder: 例如 RK3568 / 4GB / 32GB eMMC
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: 可用源码和资料
+      description: 提供厂商源码、DTS、U-Boot、原厂镜像、原理图或现有 OpenWrt 支持链接。
+    validations:
+      required: true
+  - type: textarea
+    id: network
+    attributes:
+      label: 网口与外设
+      placeholder: PHY、交换芯片、Wi-Fi、USB、NVMe、SATA、LED、风扇等
+    validations:
+      required: true
+  - type: dropdown
+    id: serial
+    attributes:
+      label: 是否可以提供串口日志
+      options:
+        - 可以
+        - 暂时不可以
+    validations:
+      required: true
+  - type: dropdown
+    id: testing
+    attributes:
+      label: 是否愿意测试候选镜像
+      options:
+        - 愿意，并且有救砖能力
+        - 愿意，但需要刷写指导
+        - 不能参与实机测试
+    validations:
+      required: true
