@@ -13,6 +13,8 @@
 
 25.12 已在官方 feeds 提供 Go、v2ray-geodata、Argon、AdGuardHome、libmbim 和大量代理依赖。构建优先使用官方版本，避免旧仓库重复定义或反向降级；仅保留官方缺少的社区应用。MosDNS 是例外：为保证 LuCI 与后端配套，使用固定提交的完整扩展替换官方基础包。
 
+社区仓库按子目录白名单导入，不能把整个仓库无条件放进 package/。5G 支持只保留 HyperModem 与其 PCIe MHI 驱动，使用官方 feeds 的 quectel-cm；旧 luci-app-modem 因依赖 25.12 已不存在的 ndisc6/rdisc6，完成移植前不进入默认镜像。Nikki 只导入前端和服务本体，统一使用 Helloworld 的稳定 Mihomo 包，避免 alpha/meta 变体互相冲突。
+
 旧 Alist 配置迁移为官方维护的 OpenList；已不存在或已被替代的 luci-app-socat、v2dat 和 quectel-CM-5G 配置不再保留。新增旧插件前必须先确认 25.12 分支有可维护的软件包来源。
 
 ## 2. 分支策略
