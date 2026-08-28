@@ -4,6 +4,7 @@ set -euo pipefail
 
 config_root="${GITHUB_WORKSPACE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 lock_file="$config_root/immortalwrt/community-sources.lock"
+patch_root="$config_root/immortalwrt/patches"
 prune_dir="$(mktemp -d "$PWD/.pruned-sources.XXXXXX")"
 
 cleanup_pruned() {
@@ -64,6 +65,17 @@ clone_locked() {
     [[ ! -e "$destination/.git" ]]
 }
 
+apply_compatibility_patches() {
+    local mhi_root="package/community/5g-modem/quectel_MHI"
+    local mhi_patch="$patch_root/quectel-mhi-linux-6.12.patch"
+
+    test -f "$mhi_patch"
+    test -f "$mhi_root/src/core/mhi_init.c"
+    patch --batch --forward --fuzz=0 -d "$mhi_root" -p1 < "$mhi_patch"
+    grep -Fq $'.llseek =\tnoop_llseek' "$mhi_root/src/core/mhi_init.c"
+    grep -Fq 'const struct device_driver *drv' "$mhi_root/src/core/mhi_init.c"
+}
+
 test -f "$lock_file"
 test -f include/toplevel.mk
 test -x scripts/feeds
@@ -79,6 +91,8 @@ while IFS='|' read -r destination url commit archive_spec; do
     [[ "$destination" != *..* ]]
     clone_locked "$destination" "$url" "$commit" "$archive_spec"
 done < "$lock_file"
+
+apply_compatibility_patches
 
 test ! -e feeds/packages/net/mosdns
 test -f package/community/helloworld/luci-app-ssr-plus/Makefile

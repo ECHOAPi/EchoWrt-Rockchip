@@ -30,6 +30,13 @@ grep -Fq "192.168.8.1" immortalwrt/diy-part2.sh
 grep -Fq "ImmortalWrt/EchoWrt" immortalwrt/diy-part2.sh
 grep -Fq 'root" && $2 == ""' immortalwrt/diy-part2.sh
 grep -Fq 'git -C "$checkout_dir" archive' immortalwrt/diy-part1.sh
+mhi_patch="immortalwrt/patches/quectel-mhi-linux-6.12.patch"
+test -f "$mhi_patch"
+grep -Fq 'apply_compatibility_patches' immortalwrt/diy-part1.sh
+grep -Fq 'patch --batch --forward --fuzz=0' immortalwrt/diy-part1.sh
+grep -Fq $'.llseek =\tnoop_llseek' "$mhi_patch"
+grep -Fq 'const struct device_driver *drv' "$mhi_patch"
+grep -Fq 'container_of(drv, const struct mhi_driver, driver)' "$mhi_patch"
 grep -Fq 'done < "$lock_file"' scripts/write-source-manifest.sh
 if grep -REn '192\.168\.11\.1' README.md docs immortalwrt scripts .github; then
     echo "Legacy management address must not remain in active repository files." >&2
@@ -162,3 +169,4 @@ sed -n 's/^CONFIG_TARGET_DEVICE_rockchip_armv8_DEVICE_\(.*\)=y$/\1/p' \
     done
 
 echo "Repository validation passed."
+
