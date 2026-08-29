@@ -153,11 +153,12 @@ jobs:
           make download -j"$(nproc)"
           find dl -type f -size -1024c -print -delete
 
-      - name: Preflight GN host tool
+      - name: Preflight Ninja and GN host tools
         working-directory: openwrt
         shell: bash
         run: |
           set -euo pipefail
+          make tools/ninja/compile -j1 V=s
           make package/feeds/packages/gn/host/compile -j1 V=s
 
       - name: Compile firmware
@@ -243,4 +244,3 @@ jobs:
           name: EchoWrt Rockchip ${{ steps.release.outputs.release_tag }}
           body_path: release.txt
           files: ${{ env.FIRMWARE }}/*
-

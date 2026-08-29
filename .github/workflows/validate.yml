@@ -84,10 +84,10 @@ jobs:
           "$GITHUB_WORKSPACE/scripts/check-resolved-config.sh" .config
           "$GITHUB_WORKSPACE/scripts/write-source-manifest.sh" "$GITHUB_WORKSPACE/COMMUNITY_SOURCES.txt"
 
-      - name: Preflight GN host tool
+      - name: Preflight Ninja and GN host tools
         working-directory: openwrt
         shell: bash
         run: |
           set -euo pipefail
+          make tools/ninja/compile -j1 V=s
           make package/feeds/packages/gn/host/compile -j1 V=s
-

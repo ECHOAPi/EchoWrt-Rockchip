@@ -34,6 +34,8 @@ grep -Fq 'runs-on: ubuntu-24.04' .github/workflows/build-rockchip.yml
 grep -Fq 'runs-on: ubuntu-24.04' .github/workflows/validate.yml
 grep -Fq 'scripts/check-host-compiler.sh' .github/workflows/build-rockchip.yml
 grep -Fq 'scripts/check-host-compiler.sh' .github/workflows/validate.yml
+grep -Fq 'make tools/ninja/compile -j1 V=s' .github/workflows/build-rockchip.yml
+grep -Fq 'make tools/ninja/compile -j1 V=s' .github/workflows/validate.yml
 grep -Fq 'make package/feeds/packages/gn/host/compile -j1 V=s' .github/workflows/build-rockchip.yml
 grep -Fq 'make package/feeds/packages/gn/host/compile -j1 V=s' .github/workflows/validate.yml
 
@@ -180,5 +182,4 @@ sed -n 's/^CONFIG_TARGET_DEVICE_rockchip_armv8_DEVICE_\(.*\)=y$/\1/p' \
     done
 
 echo "Repository validation passed."
-
 
