@@ -26,6 +26,17 @@ if grep -REn 'DHDAXCW/(immortalwrt|lede-rockchip)' .github/workflows; then
     exit 1
 fi
 
+if grep -REn 'runs-on:[[:space:]]+ubuntu-22\.04' .github/workflows; then
+    echo "Ubuntu 22.04 must not return; GN requires a newer host Clang." >&2
+    exit 1
+fi
+grep -Fq 'runs-on: ubuntu-24.04' .github/workflows/build-rockchip.yml
+grep -Fq 'runs-on: ubuntu-24.04' .github/workflows/validate.yml
+grep -Fq 'scripts/check-host-compiler.sh' .github/workflows/build-rockchip.yml
+grep -Fq 'scripts/check-host-compiler.sh' .github/workflows/validate.yml
+grep -Fq 'make package/feeds/packages/gn/host/compile -j1 V=s' .github/workflows/build-rockchip.yml
+grep -Fq 'make package/feeds/packages/gn/host/compile -j1 V=s' .github/workflows/validate.yml
+
 grep -Fq "192.168.8.1" immortalwrt/diy-part2.sh
 grep -Fq "ImmortalWrt/EchoWrt" immortalwrt/diy-part2.sh
 grep -Fq 'root" && $2 == ""' immortalwrt/diy-part2.sh
@@ -169,4 +180,5 @@ sed -n 's/^CONFIG_TARGET_DEVICE_rockchip_armv8_DEVICE_\(.*\)=y$/\1/p' \
     done
 
 echo "Repository validation passed."
+
 

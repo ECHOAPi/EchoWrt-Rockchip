@@ -42,7 +42,7 @@ env:
 jobs:
   build:
     name: ${{ inputs.profile }} / ${{ inputs.source_ref }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 330
 
     steps:
@@ -85,6 +85,10 @@ jobs:
           sudo apt-get -qq update
           sudo apt-get install -y --no-install-recommends "${packages[@]}"
           sudo apt-get -qq clean
+
+      - name: Verify host compiler
+        shell: bash
+        run: bash "$GITHUB_WORKSPACE/scripts/check-host-compiler.sh"
 
       - name: Download ImmortalWrt source
         shell: bash
@@ -148,6 +152,13 @@ jobs:
           set -euo pipefail
           make download -j"$(nproc)"
           find dl -type f -size -1024c -print -delete
+
+      - name: Preflight GN host tool
+        working-directory: openwrt
+        shell: bash
+        run: |
+          set -euo pipefail
+          make package/feeds/packages/gn/host/compile -j1 V=s
 
       - name: Compile firmware
         working-directory: openwrt
@@ -232,3 +243,4 @@ jobs:
           name: EchoWrt Rockchip ${{ steps.release.outputs.release_tag }}
           body_path: release.txt
           files: ${{ env.FIRMWARE }}/*
+

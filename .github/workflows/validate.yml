@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   validate:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Check out repository
@@ -37,10 +37,10 @@ jobs:
         run: bash scripts/validate-repository.sh
 
   upstream-config:
-    name: Resolve ImmortalWrt 25.12 config (no compile)
+    name: Resolve ImmortalWrt 25.12 config and preflight GN
     needs: validate
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
@@ -52,8 +52,12 @@ jobs:
           sudo apt-get -qq update
           sudo apt-get install -y --no-install-recommends \
             build-essential clang flex bison g++ gawk gcc-multilib gettext git \
-            libelf-dev libncurses-dev libssl-dev patch python3-setuptools rsync swig \
+            libelf-dev libncurses-dev libssl-dev ninja-build patch python3-setuptools rsync swig \
             unzip zlib1g-dev zstd
+
+      - name: Verify host compiler
+        shell: bash
+        run: bash "$GITHUB_WORKSPACE/scripts/check-host-compiler.sh"
 
       - name: Fetch ImmortalWrt and feeds
         shell: bash
@@ -78,4 +82,12 @@ jobs:
           make defconfig
           "$GITHUB_WORKSPACE/scripts/check-resolved-config.sh" .config
           "$GITHUB_WORKSPACE/scripts/write-source-manifest.sh" "$GITHUB_WORKSPACE/COMMUNITY_SOURCES.txt"
+
+      - name: Preflight GN host tool
+        working-directory: openwrt
+        shell: bash
+        run: |
+          set -euo pipefail
+          make package/feeds/packages/gn/host/compile -j1 V=s
+
 
