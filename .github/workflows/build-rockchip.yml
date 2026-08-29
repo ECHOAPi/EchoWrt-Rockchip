@@ -43,7 +43,7 @@ jobs:
   build:
     name: ${{ inputs.profile }} / ${{ inputs.source_ref }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 330
+    timeout-minutes: 360
 
     steps:
       - name: Maximize build space
@@ -190,7 +190,7 @@ jobs:
 
           (
             cd "$target_dir"
-            sha256sum -- *.img.gz > SHA256SUMS
+            sha256sum -- *.img.gz > FIRMWARE_SHA256SUMS
           )
 
           {

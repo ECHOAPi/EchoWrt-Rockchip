@@ -32,6 +32,7 @@ if grep -REn 'runs-on:[[:space:]]+ubuntu-22\.04' .github/workflows; then
 fi
 grep -Fq 'runs-on: ubuntu-24.04' .github/workflows/build-rockchip.yml
 grep -Fq 'runs-on: ubuntu-24.04' .github/workflows/validate.yml
+grep -Fq 'timeout-minutes: 360' .github/workflows/build-rockchip.yml
 grep -Fq 'root-reserve-mb: 4096' .github/workflows/build-rockchip.yml
 grep -Fq 'scripts/check-host-compiler.sh' .github/workflows/build-rockchip.yml
 grep -Fq 'scripts/check-host-compiler.sh' .github/workflows/validate.yml
@@ -39,6 +40,11 @@ grep -Fq 'make tools/ninja/compile -j1 V=s' .github/workflows/build-rockchip.yml
 grep -Fq 'make tools/ninja/compile -j1 V=s' .github/workflows/validate.yml
 grep -Fq 'make package/feeds/packages/gn/host/compile -j1 V=s' .github/workflows/build-rockchip.yml
 grep -Fq 'make package/feeds/packages/gn/host/compile -j1 V=s' .github/workflows/validate.yml
+grep -Fq 'FIRMWARE_SHA256SUMS' .github/workflows/build-rockchip.yml
+if grep -Fq '> SHA256SUMS' .github/workflows/build-rockchip.yml; then
+    echo "Custom checksum filename must not collide with OpenWrt sha256sums." >&2
+    exit 1
+fi
 
 grep -Fq "192.168.8.1" immortalwrt/diy-part2.sh
 grep -Fq "ImmortalWrt/EchoWrt" immortalwrt/diy-part2.sh
