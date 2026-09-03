@@ -179,6 +179,19 @@ if [[ -n "$duplicate_config_symbols" ]]; then
     exit 1
 fi
 
+required_default_devices=(
+    friendlyarm_nanopi-r2c
+    friendlyarm_nanopi-r2s
+    friendlyarm_nanopi-r4s
+)
+for required_device in "${required_default_devices[@]}"; do
+    grep -Fqx "CONFIG_TARGET_DEVICE_rockchip_armv8_DEVICE_${required_device}=y" \
+        immortalwrt/rockchip/defconfig || {
+        echo "Required default device is disabled: $required_device" >&2
+        exit 1
+    }
+done
+
 sed -n 's/^CONFIG_TARGET_DEVICE_rockchip_armv8_DEVICE_\(.*\)=y$/\1/p' \
     immortalwrt/rockchip/defconfig |
     while IFS= read -r device; do

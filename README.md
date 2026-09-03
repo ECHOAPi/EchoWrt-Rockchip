@@ -19,6 +19,8 @@ armsom_sige3
 armsom_sige7
 friendlyarm_nanopc-t4
 friendlyarm_nanopc-t6
+friendlyarm_nanopi-r2c
+friendlyarm_nanopi-r2s
 friendlyarm_nanopi-r3s
 friendlyarm_nanopi-r4s
 friendlyarm_nanopi-r4se
@@ -32,7 +34,7 @@ xunlong_orangepi-5
 xunlong_orangepi-5-plus
 ~~~
 
-ImmortalWrt 25.12 已有定义、但默认配置暂未启用的设备包括 NanoPi R2C 和 R2S。它们只需加入构建矩阵并完成实机验证。NanoPi R4S 已加入默认配置，用于补上原项目长期缺失的 R4S 固件；首次云编译与实机验证完成前不会作为正式 Release 发布。
+NanoPi R2C、R2S 和 R4S 均已加入默认构建配置。这三个设备使用 ImmortalWrt 25.12 的官方 Rockchip profile；新生成的固件仍需按具体硬件版本完成实机启动、网络端口和升级测试。
 
 DoorNet、LubanCat 和部分 Hinlink 设备不在当前官方 25.12 Rockchip 设备定义中，不能只复制旧配置直接发布；这些设备需要单独移植 DTS、镜像布局、网络接口和升级脚本，并保留串口救砖方案。
 
