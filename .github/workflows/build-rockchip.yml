@@ -131,19 +131,11 @@ jobs:
           chmod +x "$GITHUB_WORKSPACE/$DIY_P2_SH"
           "$GITHUB_WORKSPACE/$DIY_P2_SH"
           if [[ "$BUILD_PROFILE" == "docker" ]]; then
-            {
-              echo "CONFIG_DOCKER_CGROUP_OPTIONS=y"
-              echo "CONFIG_DOCKER_NET_MACVLAN=y"
-              echo "CONFIG_DOCKER_STO_EXT4=y"
-              echo "CONFIG_PACKAGE_docker=y"
-              echo "CONFIG_PACKAGE_docker-compose=y"
-              echo "CONFIG_PACKAGE_dockerd=y"
-              echo "CONFIG_PACKAGE_luci-app-dockerman=y"
-              echo "CONFIG_PACKAGE_luci-i18n-dockerman-zh-cn=y"
-              echo "CONFIG_PACKAGE_luci-lib-docker=y"
-            } >> .config
+            cat "$GITHUB_WORKSPACE/immortalwrt/rockchip/docker.config" >> .config
           fi
+          cp .config .config.requested
           make defconfig
+          bash "$GITHUB_WORKSPACE/scripts/check-resolved-config.sh" .config .config.requested
 
       - name: Download package sources
         working-directory: openwrt
@@ -192,6 +184,8 @@ jobs:
             cd "$target_dir"
             sha256sum -- *.img.gz > FIRMWARE_SHA256SUMS
           )
+          python3 scripts/firmware.py "$target_dir" \
+            --config openwrt/.config.requested --profile "$BUILD_PROFILE"
 
           {
             echo "project=$PROJECT_NAME"
@@ -203,6 +197,8 @@ jobs:
             echo "workflow_commit=$GITHUB_SHA"
           } > "$target_dir/BUILD_INFO.txt"
           install -m 0644 COMMUNITY_SOURCES.txt "$target_dir/COMMUNITY_SOURCES.txt"
+          install -m 0644 openwrt/.config.requested "$target_dir/REQUESTED_CONFIG"
+          install -m 0644 openwrt/.config "$target_dir/RESOLVED_CONFIG"
 
           echo "FIRMWARE=$target_dir" >> "$GITHUB_ENV"
 
@@ -230,17 +226,22 @@ jobs:
             echo "- Source: $SOURCE_URL"
             echo "- Ref: $SOURCE_REF"
             echo "- Commit: $SOURCE_COMMIT"
+            echo "- Build configuration commit: $GITHUB_SHA"
             echo
             echo "默认管理地址为 192.168.8.1；首次登录时请设置 root 密码。刷写前请核对设备型号与镜像文件名。"
           } > release.txt
 
       - name: Publish GitHub Release
         if: ${{ inputs.publish_release }}
-        uses: softprops/action-gh-release@fe965f7af51af5f2602596916f38a38df2e33de0 # v3.0.2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.release.outputs.release_tag }}
-          name: EchoWrt Rockchip ${{ steps.release.outputs.release_tag }}
-          body_path: release.txt
-          files: ${{ env.FIRMWARE }}/*
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.release_tag }}
+          SOURCE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/publish-firmware.py "$FIRMWARE" \
+            --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --title "EchoWrt Rockchip $RELEASE_TAG" --source-sha "$SOURCE_SHA" \
+            --notes release.txt --config "$FIRMWARE/REQUESTED_CONFIG" \
+            --profile "$BUILD_PROFILE"

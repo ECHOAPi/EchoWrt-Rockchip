@@ -28,11 +28,13 @@
 
 候选固件依次通过以下阶段：
 
-1. 仓库校验：Shell 语法、工作流 action 固定版本、设备清单一致。
+1. 仓库校验：Shell 语法、工作流 action 固定版本、设备清单一致，以及发布流程回归测试。standard 和 docker 均需通过完整配置解析检查。
 2. 云编译：standard 配置完整成功，产物包含三份追溯文件。
-3. 镜像检查：目标设备文件存在，SHA256 可验证，文件大小合理。
+3. 镜像检查：镜像与请求设备及 profiles.json 一致；FIRMWARE_SHA256SUMS 不含重复或越界文件名，且完整覆盖每个镜像；逐个 SHA256 验证通过。
 4. 实机冒烟：启动、LAN/WAN、存储、重启和升级路径正常。
-5. 发布：使用独立日期与 profile 标签，Release 中注明源码提交和已验证设备。
+5. 发布：使用独立日期与 profile 标签，绑定实际构建配置提交；先创建草稿，完整上传并核对全部附件名称、大小与 SHA256 后再公开。Release 中注明源码提交和已验证设备。
+
+公开 Release 不允许覆盖附件。失败后可重跑以继续同一提交的草稿；已有附件必须与本地产物一致，否则停止并人工检查，不能通过覆盖掩盖冲突。若 GitHub 拒绝在指定提交创建标签，应先处理所需仓库权限，不得退回默认分支创建错误标签。
 
 docker profile 在 standard 通过后单独验证，不能替代 standard 基线。
 
@@ -49,7 +51,7 @@ docker profile 在 standard 通过后单独验证，不能替代 standard 基线
 - 备份恢复和 sysupgrade 路径验证；首次验证前准备可用的救砖方法。
 - 风扇、LED、Wi-Fi、USB、NVMe、SATA、5G 模组等板级功能按硬件逐项测试。
 
-建议把 BUILD_INFO.txt、COMMUNITY_SOURCES.txt、SHA256SUMS 和关键日志附到对应 Issue。
+建议把 BUILD_INFO.txt、COMMUNITY_SOURCES.txt、FIRMWARE_SHA256SUMS、新构建的 REQUESTED_CONFIG / RESOLVED_CONFIG 和关键日志附到对应 Issue。
 
 ## 5. 源码与软件包更新
 

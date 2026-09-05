@@ -142,25 +142,10 @@ jobs:
           fi
 
           firmware_dir="$(dirname "${checksum_files[0]}")"
-          mapfile -d '' image_files < <(find "$firmware_dir" -maxdepth 1 -type f -name '*.img.gz' -print0)
-          if (("${#image_files[@]}" != EXPECTED_IMAGE_COUNT)); then
-            echo "Expected $EXPECTED_IMAGE_COUNT images, found ${#image_files[@]}." >&2
-            exit 1
-          fi
-
-          checksum_count="$(awk 'NF >= 2 { count++ } END { print count + 0 }' "${checksum_files[0]}")"
-          if ((checksum_count != EXPECTED_IMAGE_COUNT)); then
-            echo "Expected $EXPECTED_IMAGE_COUNT checksum entries, found $checksum_count." >&2
-            exit 1
-          fi
-
-          (
-            cd "$firmware_dir"
-            sha256sum -c FIRMWARE_SHA256SUMS
-          )
+          python3 scripts/firmware.py "$firmware_dir" --expected-count "$EXPECTED_IMAGE_COUNT"
 
           echo "firmware_dir=$firmware_dir" >> "$GITHUB_OUTPUT"
-          echo "image_count=${#image_files[@]}" >> "$GITHUB_OUTPUT"
+          echo "image_count=$EXPECTED_IMAGE_COUNT" >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes
         env:
@@ -199,51 +184,26 @@ jobs:
           RELEASE_NAME: ${{ steps.request.outputs.release_name }}
           RELEASE_TAG: ${{ steps.request.outputs.release_tag }}
           SOURCE_SHA: ${{ steps.artifact.outputs.source_sha }}
+          EXPECTED_IMAGE_COUNT: ${{ steps.request.outputs.expected_image_count }}
         shell: bash
         run: |
           set -euo pipefail
 
-          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$SOURCE_SHA" \
-              --title "$RELEASE_NAME" \
-              --notes-file "$RUNNER_TEMP/release-notes.md"
+          profile_args=()
+          if [[ -f "$FIRMWARE_DIR/REQUESTED_CONFIG" ]]; then
+            build_profile="$(sed -n 's/^build_profile=//p' "$FIRMWARE_DIR/BUILD_INFO.txt")"
+            profile_args=(--config "$FIRMWARE_DIR/REQUESTED_CONFIG" --profile "$build_profile")
           fi
-
-          mapfile -d '' release_files < <(find "$FIRMWARE_DIR" -maxdepth 1 -type f -print0 | sort -z)
-          if (("${#release_files[@]}" == 0)); then
-            echo "No release files found." >&2
-            exit 1
-          fi
-
-          for release_file in "${release_files[@]}"; do
-            file_size="$(stat -c '%s' "$release_file")"
-            if ((file_size > 2147483648)); then
-              echo "Release asset exceeds 2 GiB: $release_file ($file_size bytes)" >&2
-              exit 1
-            fi
-
-            uploaded=false
-            for attempt in 1 2 3; do
-              if gh release upload "$RELEASE_TAG" "$release_file" \
-                --repo "$GITHUB_REPOSITORY" \
-                --clobber; then
-                uploaded=true
-                break
-              fi
-              sleep "$((attempt * 10))"
-            done
-            [[ "$uploaded" == "true" ]]
-          done
-
-          release_url="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
-          echo "release_url=$release_url" >> "$GITHUB_OUTPUT"
+          python3 scripts/publish-firmware.py "$FIRMWARE_DIR" \
+            --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --title "$RELEASE_NAME" --source-sha "$SOURCE_SHA" \
+            --notes "$RUNNER_TEMP/release-notes.md" \
+            --expected-count "$EXPECTED_IMAGE_COUNT" "${profile_args[@]}"
 
           {
             echo "## Release published"
             echo
-            echo "- URL: $release_url"
+            echo "- URL: https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG"
             echo "- Images: ${{ steps.verify.outputs.image_count }}"
             echo "- Checksums: verified"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -37,8 +37,12 @@ jobs:
         run: bash scripts/validate-repository.sh
 
   upstream-config:
-    name: Resolve ImmortalWrt 25.12 config and preflight GN
+    name: Resolve ImmortalWrt 25.12 config (${{ matrix.profile }})
     needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [standard, docker]
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -74,17 +78,24 @@ jobs:
 
       - name: Resolve requested configuration
         working-directory: openwrt
+        env:
+          BUILD_PROFILE: ${{ matrix.profile }}
         shell: bash
         run: |
           set -euo pipefail
           "$GITHUB_WORKSPACE/immortalwrt/diy-part1.sh"
           install -m 0644 "$GITHUB_WORKSPACE/immortalwrt/rockchip/defconfig" .config
           "$GITHUB_WORKSPACE/immortalwrt/diy-part2.sh"
+          if [[ "$BUILD_PROFILE" == "docker" ]]; then
+            cat "$GITHUB_WORKSPACE/immortalwrt/rockchip/docker.config" >> .config
+          fi
+          cp .config .config.requested
           make defconfig
-          "$GITHUB_WORKSPACE/scripts/check-resolved-config.sh" .config
+          bash "$GITHUB_WORKSPACE/scripts/check-resolved-config.sh" .config .config.requested
           "$GITHUB_WORKSPACE/scripts/write-source-manifest.sh" "$GITHUB_WORKSPACE/COMMUNITY_SOURCES.txt"
 
       - name: Preflight Ninja and GN host tools
+        if: ${{ matrix.profile == 'standard' }}
         working-directory: openwrt
         shell: bash
         run: |

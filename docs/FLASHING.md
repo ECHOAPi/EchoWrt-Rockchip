@@ -8,7 +8,7 @@
 
 1. 核对设备完整型号、硬件版本、内存与启动介质。
 2. 阅读产物中的 `BUILD_INFO.txt`，确认源码分支、提交和构建 profile。
-3. 在固件目录执行 `sha256sum -c SHA256SUMS`，所有镜像都应显示 `OK`。
+3. 下载 `FIRMWARE_SHA256SUMS` 和对应镜像，在固件目录执行 `sha256sum --ignore-missing -c FIRMWARE_SHA256SUMS`；已下载的镜像必须显示 `OK`，且不能出现校验失败。下载全部镜像时可以执行 `sha256sum -c FIRMWARE_SHA256SUMS`。
 4. 备份当前配置，并准备串口、Maskrom 或厂商恢复工具等可用的救砖路径。
 5. 首次测试优先使用可移除的 SD 卡，不要直接覆盖仍可启动的 eMMC。
 

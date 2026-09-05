@@ -3,7 +3,7 @@
 set -euo pipefail
 
 config_root="${GITHUB_WORKSPACE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-requested_config="$config_root/immortalwrt/rockchip/defconfig"
+requested_config="${2:-$config_root/immortalwrt/rockchip/defconfig}"
 resolved_config="${1:-.config}"
 result_file="$(mktemp "${TMPDIR:-/tmp}/echowrt-config-check.XXXXXX")"
 trap 'rm -f "$result_file"' EXIT
