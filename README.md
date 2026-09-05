@@ -1,5 +1,9 @@
 # EchoWrt-Rockchip
 
+> 主维护仓库已迁移到 [ECHOAPi/EchoWrt](https://github.com/ECHOAPi/EchoWrt)。后续配置更新、云编译和新版本发布请使用新仓库。
+>
+> 本仓库保留来源记录和[现有 Build #5 正式固件下载](https://github.com/ECHOAPi/EchoWrt-Rockchip/releases/tag/2026.08.29-standard-r5)。
+
 EchoWrt-Rockchip 是面向 Rockchip 设备的 ImmortalWrt 固件构建与独立维护项目。本仓库保存构建配置、定制脚本和 GitHub Actions 工作流，不再维护一份完整且长期分叉的 OpenWrt 源码树。
 
 ## 源码策略
