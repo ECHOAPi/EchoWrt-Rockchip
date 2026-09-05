@@ -38,6 +38,8 @@
 
 docker profile 在 standard 通过后单独验证，不能替代 standard 基线。
 
+25.12 的官方 Dockerman 使用 `ucode-mod-socket`，不再要求旧的 `luci-lib-docker`；docker.config 必须与官方应用依赖保持一致，不能仅依赖 make defconfig 静默丢弃失效选项。
+
 ## 4. 实机冒烟清单
 
 每种设备至少记录：

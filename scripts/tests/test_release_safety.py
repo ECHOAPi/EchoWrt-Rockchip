@@ -263,6 +263,12 @@ class PublishingTests(FirmwareFixture):
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_docker_overlay_uses_current_dockerman_dependencies(self):
+        overlay = (REPO / "immortalwrt/rockchip/docker.config").read_text().splitlines()
+        self.assertIn("CONFIG_PACKAGE_luci-app-dockerman=y", overlay)
+        self.assertIn("CONFIG_PACKAGE_ucode-mod-socket=y", overlay)
+        self.assertNotIn("CONFIG_PACKAGE_luci-lib-docker=y", overlay)
+
     def test_full_composed_config_is_checked(self):
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as temporary:
             root = Path(temporary)
