@@ -1,8 +1,8 @@
-# destination|repository|commit
-package/community/helloworld|https://github.com/fw876/helloworld.git|9747ffd550052fc7c9237853e4666122bdba9e5b
-package/community/openwrt-passwall2|https://github.com/Openwrt-Passwall/openwrt-passwall2.git|cc074ed776579849ae68aec303eb85867b4dc4ee
-package/community/OpenWrt-nikki|https://github.com/nikkinikki-org/OpenWrt-nikki.git|3799926b147d7065ac98508f16951f8714e53659
-package/community/istore|https://github.com/linkease/istore.git|07573209abc9377a128c56a3f9322ebc8d9b7d31
-package/community/5G-Modem-Support|https://github.com/Siriling/5G-Modem-Support.git|b1d9a12ac4c209b82fb9db533b067c3fec95a9a6
-package/community/luci-app-lucky|https://github.com/gdy666/luci-app-lucky.git|c1730565c6df4ab30d345cf73584f03f5cc7bc8f
-package/mosdns|https://github.com/sbwml/luci-app-mosdns.git|86b43b91be2a96b131bc71c9696fb8604ebddbf0
+# destination|repository|commit|archive paths (comma-separated, or . for all)
+package/community/helloworld|https://github.com/fw876/helloworld.git|9747ffd550052fc7c9237853e4666122bdba9e5b|luci-app-ssr-plus,mihomo,shadowsocksr-libev
+package/community/openwrt-passwall2|https://github.com/Openwrt-Passwall/openwrt-passwall2.git|cc074ed776579849ae68aec303eb85867b4dc4ee|.
+package/community/nikki|https://github.com/nikkinikki-org/OpenWrt-nikki.git|3799926b147d7065ac98508f16951f8714e53659|luci-app-nikki,nikki
+package/community/istore|https://github.com/linkease/istore.git|07573209abc9377a128c56a3f9322ebc8d9b7d31|.
+package/community/5g-modem|https://github.com/Siriling/5G-Modem-Support.git|b1d9a12ac4c209b82fb9db533b067c3fec95a9a6|luci-app-hypermodem,quectel_MHI
+package/community/luci-app-lucky|https://github.com/gdy666/luci-app-lucky.git|c1730565c6df4ab30d345cf73584f03f5cc7bc8f|.
+package/mosdns|https://github.com/sbwml/luci-app-mosdns.git|86b43b91be2a96b131bc71c9696fb8604ebddbf0|.

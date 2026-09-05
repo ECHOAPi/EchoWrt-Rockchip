@@ -1,0 +1,209 @@
+name: Publish EchoWrt Rockchip release
+
+on:
+  push:
+    branches:
+      - maintenance/legacy-cleanup
+    paths:
+      - "release-requests/*.json"
+  workflow_dispatch:
+    inputs:
+      request_file:
+        description: Release request JSON file
+        required: true
+        default: release-requests/build-5.json
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: publish-rockchip-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify and publish existing firmware
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out release request
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Resolve release request
+        id: request
+        env:
+          REQUEST_FILE_INPUT: ${{ inputs.request_file }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            request_file="$REQUEST_FILE_INPUT"
+          else
+            mapfile -t request_files < <(
+              git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" |
+                grep -E '^release-requests/[^/]+\.json$'
+            )
+            if (("${#request_files[@]}" != 1)); then
+              echo "Expected exactly one release request in the triggering commit." >&2
+              exit 1
+            fi
+            request_file="${request_files[0]}"
+          fi
+
+          [[ -f "$request_file" ]]
+          run_id="$(jq -er '.run_id | tostring' "$request_file")"
+          release_tag="$(jq -er '.release_tag' "$request_file")"
+          release_name="$(jq -er '.release_name' "$request_file")"
+          expected_image_count="$(jq -er '.expected_image_count' "$request_file")"
+
+          [[ "$run_id" =~ ^[0-9]+$ ]]
+          [[ "$release_tag" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]]
+          [[ "$expected_image_count" =~ ^[0-9]+$ ]]
+          ((expected_image_count > 0))
+
+          {
+            echo "run_id=$run_id"
+            echo "release_tag=$release_tag"
+            echo "release_name=$release_name"
+            echo "expected_image_count=$expected_image_count"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Resolve successful artifact
+        id: artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ steps.request.outputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          run_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
+          status="$(jq -r '.status' <<< "$run_json")"
+          conclusion="$(jq -r '.conclusion' <<< "$run_json")"
+          [[ "$status" == "completed" && "$conclusion" == "success" ]]
+
+          source_sha="$(jq -r '.head_sha' <<< "$run_json")"
+          source_branch="$(jq -r '.head_branch' <<< "$run_json")"
+          run_number="$(jq -r '.run_number' <<< "$run_json")"
+          run_url="$(jq -r '.html_url' <<< "$run_json")"
+
+          artifact_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts?per_page=100")"
+          artifact_count="$(jq '[.artifacts[] | select(.expired == false)] | length' <<< "$artifact_json")"
+          if ((artifact_count != 1)); then
+            echo "Expected exactly one non-expired artifact, found $artifact_count." >&2
+            exit 1
+          fi
+
+          artifact_name="$(jq -r '.artifacts[] | select(.expired == false) | .name' <<< "$artifact_json")"
+          artifact_digest="$(jq -r '.artifacts[] | select(.expired == false) | .digest' <<< "$artifact_json")"
+
+          {
+            echo "artifact_name=$artifact_name"
+            echo "artifact_digest=$artifact_digest"
+            echo "source_sha=$source_sha"
+            echo "source_branch=$source_branch"
+            echo "run_number=$run_number"
+            echo "run_url=$run_url"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download existing firmware artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ steps.request.outputs.run_id }}
+          ARTIFACT_NAME: ${{ steps.artifact.outputs.artifact_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p firmware
+          gh run download "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$ARTIFACT_NAME" \
+            --dir firmware
+
+      - name: Verify firmware checksums
+        id: verify
+        env:
+          EXPECTED_IMAGE_COUNT: ${{ steps.request.outputs.expected_image_count }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t checksum_files < <(find firmware -type f -name FIRMWARE_SHA256SUMS -print)
+          if (("${#checksum_files[@]}" != 1)); then
+            echo "Expected exactly one FIRMWARE_SHA256SUMS file." >&2
+            exit 1
+          fi
+
+          firmware_dir="$(dirname "${checksum_files[0]}")"
+          python3 scripts/firmware.py "$firmware_dir" --expected-count "$EXPECTED_IMAGE_COUNT"
+
+          echo "firmware_dir=$firmware_dir" >> "$GITHUB_OUTPUT"
+          echo "image_count=$EXPECTED_IMAGE_COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        env:
+          ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact_digest }}
+          ARTIFACT_NAME: ${{ steps.artifact.outputs.artifact_name }}
+          FIRMWARE_DIR: ${{ steps.verify.outputs.firmware_dir }}
+          IMAGE_COUNT: ${{ steps.verify.outputs.image_count }}
+          RUN_NUMBER: ${{ steps.artifact.outputs.run_number }}
+          RUN_URL: ${{ steps.artifact.outputs.run_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "## EchoWrt Rockchip firmware"
+            echo
+            echo "- Source workflow: [Build #$RUN_NUMBER]($RUN_URL)"
+            echo "- Artifact: \`$ARTIFACT_NAME\`"
+            echo "- Artifact digest: \`$ARTIFACT_DIGEST\`"
+            echo "- Device images: $IMAGE_COUNT"
+            echo
+            echo "### Build information"
+            echo '```text'
+            cat "$FIRMWARE_DIR/BUILD_INFO.txt"
+            echo '```'
+            echo
+            echo "默认管理地址为 \`192.168.8.1\`；首次登录时请设置 root 密码。"
+            echo "刷写前请核对设备型号、镜像文件名及 \`FIRMWARE_SHA256SUMS\`。"
+          } > "$RUNNER_TEMP/release-notes.md"
+
+      - name: Publish GitHub Release assets
+        id: release
+        env:
+          FIRMWARE_DIR: ${{ steps.verify.outputs.firmware_dir }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NAME: ${{ steps.request.outputs.release_name }}
+          RELEASE_TAG: ${{ steps.request.outputs.release_tag }}
+          SOURCE_SHA: ${{ steps.artifact.outputs.source_sha }}
+          EXPECTED_IMAGE_COUNT: ${{ steps.request.outputs.expected_image_count }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          profile_args=()
+          if [[ -f "$FIRMWARE_DIR/REQUESTED_CONFIG" ]]; then
+            build_profile="$(sed -n 's/^build_profile=//p' "$FIRMWARE_DIR/BUILD_INFO.txt")"
+            profile_args=(--config "$FIRMWARE_DIR/REQUESTED_CONFIG" --profile "$build_profile")
+          fi
+          python3 scripts/publish-firmware.py "$FIRMWARE_DIR" \
+            --repo "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" \
+            --title "$RELEASE_NAME" --source-sha "$SOURCE_SHA" \
+            --notes "$RUNNER_TEMP/release-notes.md" \
+            --expected-count "$EXPECTED_IMAGE_COUNT" "${profile_args[@]}"
+
+          {
+            echo "## Release published"
+            echo
+            echo "- URL: https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG"
+            echo "- Images: ${{ steps.verify.outputs.image_count }}"
+            echo "- Checksums: verified"
+          } >> "$GITHUB_STEP_SUMMARY"
